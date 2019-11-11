@@ -1,0 +1,50 @@
+#mkdir newrepo
+#cd newrepo
+#mkdir tmp 
+#mkdir data 
+#mkdir R
+#mkdir figures
+#echo "BIO331 Course Repository for Spatial Bioinformatics Unit" > README.md
+
+install.packages('dismo') # Species Distribution Modeling tools
+install.packages('raster') # R tools for GIS raster files
+install.packages('spocc') # Access species occurrence data from GBIF/iNaturalist
+install.packages('ENMeval') # Tuning SDMs
+install.packages('mapr') # Quick mapping tools
+
+#Downloading WorldClim Data
+library(sp)
+library(raster) 
+clim = getData('worldclim', var='bio', res=5, path='tmp')     
+summary(clim) #or summary(clim[[1]]) for individual data point
+
+ext = extent(-74, -69, 40, 45) #Define an extent object, in this case, the east coast of Massachusetts
+c2 = crop(clim, ext) #and crop to specify climate
+plot(c2[[1]]) #and plot
+
+#Plotting with ggplot
+library(ggplot2)
+c2_df = as.data.frame(c2, xy = TRUE) #Creating a dataframe
+head(c2_df)
+
+ggplot() + geom_raster(data = c2_df, aes(x = x, y = y, fill = bio1)) + coord_quickmap() #Plotting a specific column frequency
+base = ggplot() + geom_raster(data = c2_df, aes(x = x, y = y, fill = bio1/10)) + coord_quickmap() + theme_bw() #Improving plotting
+base + scale_fill_gradientn(colours=c('navy', 'white', 'darkred'), na.value = "black") #Making it look nice with more data
+
+#Viridis
+library(viridis)
+base + scale_fill_gradientn(colours=viridis(99), na.value = "black") #Adjusting colors
+
+#More expanded tools
+library(ggsci) #for expanded colors
+ggplot() + geom_raster(data = c2_df, aes(x = x, y = y, fill = bio1), colours=viridis::viridis) + coord_quickmap() + theme_bw() +scale_fill_gsea() 
+
+#Plotting a Histogram
+ggplot() + geom_histogram(data = c2_df, aes(x = bio1))
+
+#Homework
+ext2 = extent(-80, -66, 39, 48)
+c3 = crop(clim, ext2)
+c3_df = as.data.frame(c3, xy = TRUE)
+hw = ggplot() + geom_raster(data = c3_df, aes(x = x, y = y, fill = bio12)) + coord_quickmap() + theme_bw() + scale_fill_gradientn(colours=viridis(99), na.value = "black")
+#The Stonehill campus gets slightly more rain compared to New York City.
