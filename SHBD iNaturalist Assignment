@@ -1,0 +1,39 @@
+#Organism of Interest: White Tailed Deer (Odocoileus virginianus)
+
+#Using library 'spocc'
+
+library(spocc)
+spdist <- occ(query='Odocoileus virginianus', from='gbif') #Query from GBIF
+print(spdist) #49,708 Found, 500 Returned
+df = as.data.frame(occ2df(spdist$gbif)) #Make Data Frame for Compatible Viewing
+spdist2 <- occ(query='Crotalus horridus', limit=2500) #Get More Occurances
+
+#Getting WorldClim Data
+
+library(raster)
+wc = getData('worldclim', var='bio', res = 5) #Downloads WorldClim Data for later Overlay
+
+#Visualizing Distribution of 'Odocoileus virginianus' in the United States (ggplot and graphing)
+
+library(ggplot2)
+ext = extent(-125, -55, 20, 60) # Just the United States Coordinates
+wc = crop(wc, ext) #Crop Image
+wc_df = as.data.frame(wc, xy=TRUE) #Create Data Frame for WorldClim Data
+sp_df = occ2df(spdist2) #Create Data Frame for Occurance Records
+ggplot() +
+  geom_raster(data = wc_df, aes(x = x, y = y, fill = bio1)) + #World Clim Data based on specified "bio1"
+  geom_point(data=sp_df, aes(x=longitude, y=latitude), col='green') + #Occurance Data Overlay
+  coord_quickmap() +
+  theme_bw() + 
+  scale_fill_gradientn(colours=c('navy', 'white', 'darkred'),
+                       na.value = "black")
+
+#Visualizing Distribution of 'Odocoileus virginianus' in the United States (ggplot and histogram)
+
+extr = extract(wc, sp_df[,c('longitude', 'latitude')]) #Extracts the WorldClim Data
+extr_df=as.data.frame(na.omit(extr)) #Creates Data Frame
+ggplot(data=extr_df) + #Plot Histogram
+  geom_histogram(aes(x=bio1), bins=30) + 
+  theme_bw()
+
+# "Bio1" is Annual Mean Temperature
