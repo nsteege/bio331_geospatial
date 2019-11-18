@@ -1,0 +1,99 @@
+library(raster)
+library(ggplot2)
+library(rasterExtras)
+library(RSpatial)
+library(spocc)
+library(dplyr)
+
+taxon = 'Odocoileus virginianus'
+
+# PART 1 - WHITE-TAILED DEER VISUALIZATION
+wc = getData('worldclim', var='bio', res = 5)
+ext = extent(-125, -55, 20, 60)
+wc = crop(wc, ext)
+wc_df = as.data.frame(wc, xy=TRUE)
+
+# DOWNLOAD
+spdist <- occ(query=taxon, limit=6500)
+sp_df = occ2df(spdist)
+
+# FILTER
+sp_df = sp_df %>% filter(longitude>=ext[1], longitude<=ext[2], latitude>=ext[3], latitude <=ext[4]) 
+
+# THINNING
+occ2thin = poThin(df = sp_df[c('longitude', 'latitude')], spacing = 25, dimension = nrow(sp_df), lon = 'longitude', lat = 'latitude')
+sp_df = sp_df[-occ2thin,] 
+
+# ENMeval
+install.packages('ENMeval')
+library(ENMeval)
+predvars = c(1,2,3,12,16)
+preds = wc[[predvars]]
+
+eval = ENMevaluate(occ=sp_df[,c('longitude', 'latitude')], env = preds, method='randomkfold', kfolds=10, parallel=TRUE, numCores = 12, fc=c("L", "Q", "LQ"), RMvalues=seq(0.5, 2, 0.5), rasterPreds=T)
+bestmod = which(eval@results$AICc==min(eval@results$AICc))
+eval@results[bestmod,]
+
+# PREDICTION
+pr = predict(preds, eval@models[[bestmod]], type = 'cloglog')
+pr_df = as.data.frame(pr, xy=T)
+
+# HEAT MAP AND PLOTTING
+est.loc = extract(pr,  eval@occ.pts)
+est.bg = extract(pr, eval@bg.pts)
+ev = evaluate(est.loc, est.bg)
+thr = threshold(ev)
+pr_thr = pr>thr$sensitivity
+pr_thr_df = as.data.frame(pr_thr, xy=TRUE)
+
+ggplot() +
+  geom_raster(data = pr_thr_df, aes(x = x, y = y, fill = layer)) +
+  geom_point(data=sp_df, aes(x=longitude, y=latitude), col='red', cex=0.2) +
+  scale_fill_manual(values = c('black', 'blue')) +
+  coord_quickmap() +
+  theme_bw() 
+
+#FUTURE VISUALIZATION
+future = getData('CMIP5', var='bio', res=5, rcp = 85, model='AC', year=70, path='tmp/')
+ext = extent(-125, -55, 20, 60)
+future = crop(future, ext)
+future_df = as.data.frame(future, xy=TRUE)
+
+spdist <- occ(query=taxon, limit=6500)
+sp_df = occ2df(spdist)
+sp_df = sp_df %>% filter(longitude>=ext[1], longitude<=ext[2], latitude>=ext[3], latitude <=ext[4]) 
+
+occ2thin = poThin(
+  df = sp_df[c('longitude', 'latitude')],
+  spacing = 25,
+  dimension = nrow(sp_df),
+  lon = 'longitude',
+  lat = 'latitude'
+)
+
+sp_df = sp_df[-occ2thin,]
+
+predvars = c(1,2,3,12,16)
+preds = future[[predvars]]
+
+eval = ENMevaluate(occ=sp_df[,c('longitude', 'latitude')], env = preds, method='randomkfold', kfolds=10, parallel=TRUE, numCores = 12, fc=c("L", "Q", "LQ"), RMvalues=seq(0.5, 2, 0.5), rasterPreds=T)
+bestmod = which(eval@results$AICc==min(eval@results$AICc))
+eval@results[bestmod,]
+
+pr = predict(preds, eval@models[[bestmod]], type = 'cloglog')
+pr_df = as.data.frame(pr, xy=T)
+
+
+est.loc = extract(pr,  eval@occ.pts)
+est.bg = extract(pr, eval@bg.pts)
+ev = evaluate(est.loc, est.bg)
+thr = threshold(ev)
+pr_thr = pr>thr$sensitivity
+pr_thr_df = as.data.frame(pr_thr, xy=TRUE)
+
+ggplot() +
+  geom_raster(data = pr_thr_df, aes(x = x, y = y, fill = layer)) +
+  geom_point(data=sp_df, aes(x=longitude, y=latitude), col='red', cex=0.2) +
+  scale_fill_manual(values = c('black', 'blue')) +
+  coord_quickmap() +
+  theme_bw() 
