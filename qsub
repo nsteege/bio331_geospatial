@@ -23,4 +23,4 @@ module load R/3.6.0
 
 cd /project/ct-shbioinf/nsteege/bio331_geospatial
 
-Rscript R/sdm_test.R
+Rscript sdm_test.R
