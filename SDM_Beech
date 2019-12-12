@@ -17,4 +17,4 @@
 
 module load R/3.6.0
 
-Rscript R/BeechTree_Script.R "Nothofagus antarctica"
+Rscript BeechTree_Script.R "Nothofagus antarctica"
